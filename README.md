@@ -18,9 +18,7 @@ in Go with [Giode](https://github.com/xmhrnx/giode). No servers, no accounts, no
 
 ## Screens
 
-Onboarding · chat list · invite code · conversation with photos, animated GIFs, voice notes,
-files and videos · full-screen viewer · incoming and active calls · contact with safety
-number · settings.
+![Onboarding, invite code, a conversation on both devices, light mode, an incoming call, a contact's safety number and settings](docs/screenshots.png)
 
 ## How it works
 
