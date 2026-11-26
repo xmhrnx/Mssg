@@ -73,7 +73,9 @@ type Service struct {
 	downloads map[string]bool
 	typingAt  map[string]time.Time
 
-	kick chan struct{}
+	kick    chan struct{}
+	refresh chan struct{}
+	reached []string // contacts reached since the presence loop last looked
 }
 
 // New opens the identity (creating one on first run) and starts the node.
@@ -102,6 +104,7 @@ func New(ctx context.Context, opt Options) (*Service, error) {
 		downloads: map[string]bool{},
 		typingAt:  map[string]time.Time{},
 		kick:      make(chan struct{}, 1),
+		refresh:   make(chan struct{}, 1),
 	}
 	if s.ev.Logf == nil {
 		s.ev.Logf = func(string, ...any) {}
@@ -123,6 +126,7 @@ func New(ctx context.Context, opt Options) (*Service, error) {
 		cfg = *opt.Node
 	}
 	cfg.PrivateKey = priv
+	cfg.Port = opt.Store.ListenPort()
 	cfg.DHTServer = opt.DHTServer
 	cfg.IsContact = s.isContact
 	cfg.OnConnectedness = s.onConnectedness
@@ -136,11 +140,17 @@ func New(ctx context.Context, opt Options) (*Service, error) {
 			s.node.AddAddrs(id, c.Addrs)
 		}
 	}
+	if p := s.node.Port(); p != 0 && p != cfg.Port {
+		if err := s.st.SaveListenPort(p); err != nil {
+			s.ev.Logf("save port: %v", err)
+		}
+	}
 	s.ctx, s.cancel = context.WithCancel(context.Background())
 	s.node.SetHandler(wire.MsgProtocol, s.handleMsgStream)
 	s.node.SetHandler(wire.FileProtocol, s.handleFileStream)
 	s.node.SetOpenHandler(InviteProtocol, s.handleInviteStream)
 	go s.outboxLoop()
+	go s.presenceLoop()
 	return s, nil
 }
 

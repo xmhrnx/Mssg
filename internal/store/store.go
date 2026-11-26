@@ -133,6 +133,17 @@ func (st *Store) Identity() ([]byte, error) {
 // SaveIdentity saves the node's marshalled private key.
 func (st *Store) SaveIdentity(k []byte) error { return st.putMeta("identity", k) }
 
+// ListenPort returns the port this device listens on, 0 before the first run.
+func (st *Store) ListenPort() int {
+	var port int
+	st.getMeta("port", &port)
+	return port
+}
+
+// SaveListenPort remembers the listen port, so contacts' cached
+// addresses for this device stay valid across restarts.
+func (st *Store) SaveListenPort(port int) error { return st.putMeta("port", port) }
+
 // Contacts returns every contact, most recently active first.
 func (st *Store) Contacts() ([]Contact, error) {
 	var out []Contact

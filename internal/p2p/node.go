@@ -42,6 +42,8 @@ type Config struct {
 	Logf            func(format string, args ...any)
 	// Bootstrap overrides the DHT bootstrap peers (tests).
 	Bootstrap []peer.AddrInfo
+	// Port is the UDP and TCP port to listen on; 0 picks any.
+	Port int
 	// ListenAddrs overrides the listen addresses (tests).
 	ListenAddrs []string
 	// NoMDNS turns local discovery off (tests).
@@ -77,11 +79,12 @@ func Start(ctx context.Context, cfg Config) (*Node, error) {
 	}
 	listen := cfg.ListenAddrs
 	if listen == nil {
+		p := cfg.Port
 		listen = []string{
-			"/ip4/0.0.0.0/udp/0/quic-v1",
-			"/ip6/::/udp/0/quic-v1",
-			"/ip4/0.0.0.0/tcp/0",
-			"/ip6/::/tcp/0",
+			fmt.Sprintf("/ip4/0.0.0.0/udp/%d/quic-v1", p),
+			fmt.Sprintf("/ip6/::/udp/%d/quic-v1", p),
+			fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", p),
+			fmt.Sprintf("/ip6/::/tcp/%d", p),
 		}
 	}
 	boot := cfg.Bootstrap
@@ -115,6 +118,11 @@ func Start(ctx context.Context, cfg Config) (*Node, error) {
 		}),
 	}
 	h, err := libp2p.New(opts...)
+	if err != nil && cfg.Port != 0 && cfg.ListenAddrs == nil {
+		// The saved port is taken: fall back to any.
+		cfg.Port = 0
+		return Start(ctx, cfg)
+	}
 	if err != nil {
 		n.cancel()
 		return nil, fmt.Errorf("start libp2p: %w", err)
@@ -174,6 +182,22 @@ func (n *Node) Addrs() []string {
 		out = append(out, a.String())
 	}
 	return out
+}
+
+// Port returns the port the node listens on.
+func (n *Node) Port() int {
+	for _, a := range n.Host.Network().ListenAddresses() {
+		for _, code := range []int{ma.P_UDP, ma.P_TCP} {
+			if v, err := a.ValueForProtocol(code); err == nil {
+				var p int
+				fmt.Sscan(v, &p)
+				if p != 0 {
+					return p
+				}
+			}
+		}
+	}
+	return 0
 }
 
 // Connected reports whether a peer is connected, directly or relayed.

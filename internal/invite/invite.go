@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/psanford/wormhole-william/wormhole"
@@ -19,8 +20,12 @@ import (
 // AppID keeps this app's codes apart from other wormhole apps.
 const AppID = "mssg.app/contact-invite/v1"
 
+// RendezvousEnv names an environment variable that points the app at a
+// self-hosted wormhole mailbox server instead of the public one.
+const RendezvousEnv = "MSSG_WORMHOLE_URL"
+
 func client() *wormhole.Client {
-	return &wormhole.Client{AppID: AppID, PassPhraseComponentLength: 2}
+	return &wormhole.Client{AppID: AppID, PassPhraseComponentLength: 2, RendezvousURL: os.Getenv(RendezvousEnv)}
 }
 
 // Offer is an invite waiting to be redeemed.

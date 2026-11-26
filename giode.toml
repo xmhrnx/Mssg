@@ -1,0 +1,32 @@
+[app]
+name = "Mssg"
+id = "app.mssg.messenger"
+version = "1.0.0"
+build = 1
+icon = "assets/icon.png"
+splash_color = "#0B0D12"
+splash_color_light = "#F5F6FA"
+description = "Private, peer-to-peer, end-to-end encrypted messaging and calls."
+platforms = ["android", "ios", "macos", "windows", "linux"]
+calls = true
+share_target = false
+
+[android]
+min_sdk = 26
+target_sdk = 35
+arch = ["arm64", "arm", "amd64"]
+permissions = ["network", "camera", "microphone", "android.permission.ACCESS_WIFI_STATE", "android.permission.CHANGE_WIFI_MULTICAST_STATE", "android.permission.VIBRATE"]
+keep_alive = true
+notifications = true
+icon_background = "#0B0D12"
+manifest = '<uses-feature android:name="android.hardware.camera" android:required="false"/>'
+
+[ios.usage]
+camera = "To make video calls and take photos to send."
+microphone = "To make calls and record voice messages."
+photos_add = "To save photos and videos you receive."
+local_network = "To reach your contacts directly on the same Wi-Fi."
+
+[ios.plist]
+UIFileSharingEnabled = true
+LSSupportsOpeningDocumentsInPlace = true
