@@ -116,7 +116,10 @@ func (s *callScreen) backdrop(name string, avatar []byte) giode.Element {
 func (s *callScreen) controls() giode.Element {
 	m := s.m
 	pad := giode.Inset{Top: 32, Bottom: 40, Left: 24, Right: 24}
-	bg := giode.Linear(0, "#000000CC", "#00000000")
+	var bg *giode.LinearGradient
+	if s.showsRemoteVideo() {
+		bg = giode.Linear(180, "#00000000", "#000000B0")
+	}
 	if m.phase == callIncoming {
 		return giode.Row(giode.Styles{Width: -1, Justify: giode.JustifySpaceEvenly, Align: giode.AlignCenter, Padding: pad, BackgroundGradient: bg},
 			labeled(s.decline, "Decline"), labeled(s.accept, "Answer"))

@@ -10,10 +10,9 @@ import (
 // download, progress, or retry.
 func (a *App) transferBadge(m store.Message, size int) giode.Element {
 	att := m.Attachment
-	downloading := a.svc.Downloading(m.ID) || att.State == store.TransferActive && a.svc.Downloading(m.ID)
 	var inner giode.Element
 	switch {
-	case downloading:
+	case a.svc.Downloading(m.ID):
 		frac := float32(0)
 		if att.Size > 0 {
 			frac = float32(att.Received) / float32(att.Size)

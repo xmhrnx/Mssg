@@ -8,8 +8,8 @@ splash_color = "#0B0D12"
 splash_color_light = "#F5F6FA"
 description = "Private, peer-to-peer, end-to-end encrypted messaging and calls."
 platforms = ["android", "ios", "macos", "windows", "linux"]
-calls = true
 share_target = false
+ldflags = "-checklinkname=0"
 
 [android]
 min_sdk = 26
@@ -18,7 +18,9 @@ arch = ["arm64", "arm", "amd64"]
 permissions = ["network", "camera", "microphone", "android.permission.ACCESS_WIFI_STATE", "android.permission.CHANGE_WIFI_MULTICAST_STATE", "android.permission.VIBRATE"]
 keep_alive = true
 notifications = true
-icon_background = "#0B0D12"
+icon_foreground = "assets/android-foreground.png"
+icon_background = "#6A6CFF"
+icon_monochrome = "assets/android-monochrome.png"
 manifest = '<uses-feature android:name="android.hardware.camera" android:required="false"/>'
 
 [ios.usage]
@@ -30,3 +32,5 @@ local_network = "To reach your contacts directly on the same Wi-Fi."
 [ios.plist]
 UIFileSharingEnabled = true
 LSSupportsOpeningDocumentsInPlace = true
+UIBackgroundModes = ["voip", "audio"]
+NSBonjourServices = ["_p2p._udp"]

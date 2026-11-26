@@ -76,6 +76,8 @@ const (
 	CallBusy   CallAction = "busy"
 	CallRing   CallAction = "ringing"
 	CallMedia  CallAction = "media" // camera turned on or off
+	// CallCandidate carries one ICE candidate in SDP, sent as it's found.
+	CallCandidate CallAction = "candidate"
 )
 
 // Call is a call signaling frame.

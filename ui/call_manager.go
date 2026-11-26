@@ -51,11 +51,16 @@ type callManager struct {
 	ringing chan struct{}
 	ticking chan struct{}
 
+	// ICE candidates from the other side that arrived before its
+	// session description was applied, by call ID.
+	early     map[string][]string
+	remoteSet bool
+
 	screen *callScreen
 }
 
 func newCallManager(a *App) *callManager {
-	m := &callManager{a: a, facing: camera.Front}
+	m := &callManager{a: a, facing: camera.Front, early: map[string][]string{}}
 	m.screen = newCallScreen(a, m)
 	telecom.Setup(a.g, telecom.Handler{
 		OnAnswer: func(id string) {
@@ -106,6 +111,15 @@ func (m *callManager) newRTC(ctx context.Context, gen int) (*rtc.Call, error) {
 		Microphone: true, Speaker: true, SpeakerPhone: m.video,
 		VideoCodecs: []rtc.VideoCodec{rtc.VP8}, SendVideo: true, VideoFPS: 15,
 		OnState: func(s rtc.State) { m.a.g.Post(func() { m.onState(gen, s) }) },
+		// Trickle ICE: candidates go out as they're found, so the call
+		// rings at once instead of after gathering.
+		OnCandidate: func(cand string) {
+			m.a.g.Post(func() {
+				if gen == m.gen {
+					m.sendCandidate(cand)
+				}
+			})
+		},
 	}
 	c, err := rtc.New(ctx, m.a.g, cfg)
 	if err == nil {
@@ -190,11 +204,53 @@ func (m *callManager) failed(gen int, err error) {
 	m.finish(reason)
 }
 
+func (m *callManager) sendCandidate(cand string) {
+	peer, id := m.peer, m.id
+	go func() {
+		ctx, cancel := context.WithTimeout(m.a.ctx(), 15*time.Second)
+		defer cancel()
+		m.a.svc.SendCall(ctx, peer, wire.Call{ID: id, Action: wire.CallCandidate, SDP: cand})
+	}()
+}
+
+// addCandidate applies a remote candidate, or keeps it until the remote
+// description is set.
+func (m *callManager) addCandidate(id, cand string) {
+	if id == m.id && m.remoteSet {
+		if c := m.call.Load(); c != nil {
+			c.AddCandidate(cand)
+		}
+		return
+	}
+	if len(m.early) > 16 {
+		clear(m.early)
+	}
+	m.early[id] = append(m.early[id], cand)
+}
+
+// remoteReady marks the remote description applied and replays the
+// candidates that came early.
+func (m *callManager) remoteReady() {
+	m.remoteSet = true
+	c := m.call.Load()
+	for _, cand := range m.early[m.id] {
+		if c != nil {
+			c.AddCandidate(cand)
+		}
+	}
+	delete(m.early, m.id)
+}
+
 // onSignal handles a call frame from a contact.
 func (m *callManager) onSignal(peer string, c wire.Call) {
 	switch c.Action {
 	case wire.CallOffer:
 		m.incoming(peer, c)
+		return
+	case wire.CallCandidate:
+		if peer == m.peer || m.phase == callIdle {
+			m.addCandidate(c.ID, c.SDP)
+		}
 		return
 	}
 	if peer != m.peer || c.ID != m.id {
@@ -214,7 +270,9 @@ func (m *callManager) onSignal(peer string, c wire.Call) {
 		if call := m.call.Load(); call != nil {
 			if err := call.Accept(c.SDP); err != nil {
 				m.failed(m.gen, err)
+				return
 			}
+			m.remoteReady()
 		}
 	case wire.CallReject:
 		m.log(store.CallInfo{Video: m.video, Declined: true})
@@ -287,10 +345,16 @@ func (m *callManager) accept() {
 		}
 		m.call.Store(c)
 		answer, err := c.Answer(ctx, offer)
-		if err == nil {
-			err = m.a.svc.SendCall(ctx, peer, wire.Call{ID: id, Action: wire.CallAnswer, SDP: answer})
-		}
 		if err != nil {
+			m.a.g.Post(func() { m.failed(gen, err) })
+			return
+		}
+		m.a.g.Post(func() {
+			if gen == m.gen {
+				m.remoteReady()
+			}
+		})
+		if err := m.a.svc.SendCall(ctx, peer, wire.Call{ID: id, Action: wire.CallAnswer, SDP: answer}); err != nil {
 			m.a.g.Post(func() { m.failed(gen, err) })
 		}
 	}()
@@ -372,7 +436,7 @@ func (m *callManager) reset(peer string, video, outgoing bool) {
 	m.gen++
 	m.peer, m.video, m.outgoing = peer, video, outgoing
 	m.started = time.Time{}
-	m.muted, m.remote = false, false
+	m.muted, m.remote, m.remoteSet = false, false, false
 	m.facing = camera.Front
 }
 

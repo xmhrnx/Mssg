@@ -105,6 +105,7 @@ func (a *App) Attach(g *giode.App) {
 }
 
 func (a *App) start() {
+	go discoverLAN()
 	dir, st, err := openData()
 	if err != nil {
 		a.g.Post(func() { a.fail(err) })
@@ -298,6 +299,7 @@ func (a *App) OnForeground() {
 		}
 		if a.svc != nil {
 			a.svc.Refresh()
+			go discoverLAN()
 		}
 	})
 }
